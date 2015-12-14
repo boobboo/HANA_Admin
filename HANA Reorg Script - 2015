@@ -1,0 +1,35 @@
+-- -----------------------------------------------------------------
+--  HANA Reorg Script - 2015 
+-- -----------------------------------------------------------------
+--  HOW TO RUN:
+--  After creating the procedure you can run it with this statement:
+--  call "_SYS_BIC"."dba_reorg"('INSERT_SCHEMA_NAME_HERE');
+-- -----------------------------------------------------------------
+
+CREATE PROCEDURE "_SYS_BIC"."dba_reorg"(IN pi_schema VARCHAR(60)) LANGUAGE SQLSCRIPT AS
+CURSOR c_cursor1 FOR
+SELECT TABLE_NAME
+FROM M_CS_TABLES
+WHERE SCHEMA_NAME = :pi_schema;
+
+-- Recompress Tables
+BEGIN
+   FOR cur_tablename AS c_cursor1() DO
+   EXEC 'UPDATE "' || :pi_schema || '"."' || cur_tablename.TABLE_NAME || '" WITH PARAMETERS ('OPTIMIZE_COMPRESSION'='FORCE')';
+ END FOR;
+END;
+
+-- Reorg Rowstore
+EXEC 'ALTER SYSTEM RECLAIM DATA SPACE';
+
+-- Trigger Rowstore GC
+EXEC 'ALTER SYSTEM RECLAIM VERSION SPACE';
+
+-- Create Savepoint
+EXEC 'ALTER SYSTEM SAVEPOINT';
+
+-- Reclaim LOG space
+EXEC 'ALTER SYSTEM SAVEPOINT';
+
+-- Reclaim DATA space
+EXEC 'ALTER SYSTEM RECLAIM DATAVOLUME 110 DEFRAGMENT';
